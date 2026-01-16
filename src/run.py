@@ -36,8 +36,16 @@ def render_png(df: pd.DataFrame, out_path: Path, title: str):
     import matplotlib.font_manager as fm
 
     # 日本語フォントを優先して見つける（見つからなければDejaVuにフォールバック）
-    candidates = ["Hiragino Sans", "YuGothic", "Apple SD Gothic Neo", "AppleGothic", "DejaVu Sans"]
-    font_path = None
+    candidates = [
+        "Noto Sans CJK JP",
+        "Noto Sans JP",
+        "Hiragino Sans",
+        "YuGothic",
+        "Apple SD Gothic Neo",
+        "AppleGothic",
+        "DejaVu Sans",
+    ]
+font_path = None
     for name in candidates:
         try:
             path = fm.findfont(fm.FontProperties(family=name), fallback_to_default=False)
