@@ -1,0 +1,21 @@
+indicators:
+  - key: US_CPI
+    country: US
+    bucket: inflation
+    label: "米CPI（総合）"
+    source: bls
+    series_id: "CUUR0000SA0"
+
+  - key: US_UNRATE
+    country: US
+    bucket: employment
+    label: "米失業率"
+    source: bls
+    series_id: "LNS14000000"
+
+  - key: US_RETAIL_SALES
+    country: US
+    bucket: demand
+    label: "米小売売上高"
+    source: fred
+    series_id: "RSAFS"
