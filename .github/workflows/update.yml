@@ -35,7 +35,7 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
-          python src/run.py
+          python src/run.py --force
 
       - name: Commit outputs if changed
         run: |
