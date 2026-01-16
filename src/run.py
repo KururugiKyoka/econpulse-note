@@ -33,6 +33,8 @@ def build_markdown(df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 def render_png(df: pd.DataFrame, out_path: Path, title: str):
+    set_japanese_font()
+
     import matplotlib.font_manager as fm
 
     # 日本語フォントを優先して見つける（見つからなければDejaVuにフォールバック）
@@ -57,6 +59,39 @@ font_path = None
     fp = fm.FontProperties(fname=font_path) if font_path else fm.FontProperties()
 
     import matplotlib.pyplot as plt
+
+
+def set_japanese_font():
+    """
+    GitHub Actions(Ubuntu)でも日本語が□にならないように、
+    Noto CJKの実ファイルを拾ってMatplotlibに登録し、デフォルトフォントに設定する。
+    """
+    try:
+        import subprocess
+        import matplotlib
+        from matplotlib import font_manager
+
+        # fc-match が返すフォント実体ファイルパスを取る（Ubuntuではこれが一番確実）
+        # Noto CJKが無い環境でも落ちないように例外は握りつぶす
+        try:
+            path = subprocess.check_output(
+                ["bash", "-lc", "fc-match -f '%{file}\\n' 'Noto Sans CJK JP' | head -n 1"],
+                text=True
+            ).strip()
+        except Exception:
+            path = ""
+
+        if path:
+            try:
+                font_manager.fontManager.addfont(path)
+                name = font_manager.FontProperties(fname=path).get_name()
+                matplotlib.rcParams["font.family"] = name
+                matplotlib.rcParams["axes.unicode_minus"] = False
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     plt.rcParams["axes.unicode_minus"] = False
 
     fig = plt.figure(figsize=(14, max(4, 0.45 * (len(df)+1))), dpi=150)
