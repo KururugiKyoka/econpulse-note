@@ -47,7 +47,7 @@ def render_png(df: pd.DataFrame, out_path: Path, title: str):
         "AppleGothic",
         "DejaVu Sans",
     ]
-font_path = None
+    font_path = None
     for name in candidates:
         try:
             path = fm.findfont(fm.FontProperties(family=name), fallback_to_default=False)
