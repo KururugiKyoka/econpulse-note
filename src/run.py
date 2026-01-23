@@ -1,169 +1,76 @@
-from pathlib import Path
+import os
 import yaml
+import requests
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
-from fetchers.bls import fetch_bls_latest
-from fetchers.fred import fetch_fred_latest
+# Mac用フォント設定
+mpl.rcParams['font.family'] = 'Hiragino Sans'
 
+API_KEY = os.getenv("FRED_API_KEY", "YOUR_DIRECT_KEY_HERE")
+CONFIG_PATH = "config/indicators.yml"
+OUTPUT_DIR = "output"
 
-import argparse
-import calendar
-import datetime as dt
-from zoneinfo import ZoneInfo
-
-JST = ZoneInfo("Asia/Tokyo")
-
-def should_run(now: dt.datetime) -> bool:
-    d = now.astimezone(JST).date()
-    last = calendar.monthrange(d.year, d.month)[1]
-    return (d.day == 16) or (d.day == last)
-
-FETCHERS = {"bls": fetch_bls_latest, "fred": fetch_fred_latest}
-
-def build_markdown(df: pd.DataFrame) -> str:
-    lines = [
-        "| 分類 | 指標 | 対象期 | 結果 | 予測 | 前回 |",
-        "|---|---|---:|---:|---:|---:|"
-    ]
-    for _, r in df.iterrows():
-        lines.append(
-            f'| {r["bucket"]} | {r["label"]} | {r["period"]} | {r["actual"]} | {r["consensus"]} | {r["previous"]} |'
-        )
-    return "\n".join(lines)
-
-def render_png(df: pd.DataFrame, out_path: Path, title: str):
-    set_japanese_font()
-
-    import matplotlib.font_manager as fm
-
-    # 日本語フォントを優先して見つける（見つからなければDejaVuにフォールバック）
-    candidates = [
-        "Noto Sans CJK JP",
-        "Noto Sans JP",
-        "Hiragino Sans",
-        "YuGothic",
-        "Apple SD Gothic Neo",
-        "AppleGothic",
-        "DejaVu Sans",
-    ]
-    font_path = None
-    for name in candidates:
-        try:
-            path = fm.findfont(fm.FontProperties(family=name), fallback_to_default=False)
-            font_path = path
-            break
-        except Exception:
-            continue
-
-    fp = fm.FontProperties(fname=font_path) if font_path else fm.FontProperties()
-
-    import matplotlib.pyplot as plt
-
-
-def set_japanese_font():
-    """
-    GitHub Actions(Ubuntu)でも日本語が□にならないように、
-    Noto CJKの実ファイルを拾ってMatplotlibに登録し、デフォルトフォントに設定する。
-    """
+def fetch_fred(series_id, units="lin"):
+    url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={API_KEY}&file_type=json&sort_order=desc&limit=10&units={units}"
     try:
-        import subprocess
-        import matplotlib
-        from matplotlib import font_manager
+        res = requests.get(url, timeout=10).json()
+        obs = [o for o in res['observations'] if o['value'] != '.']
+        if len(obs) < 2: return None
+        # 小数点第2位に丸めて、投資家が見慣れた数値にする
+        return {"actual": round(float(obs[0]['value']), 2), "previous": round(float(obs[1]['value']), 2)}
+    except Exception: return None
 
-        # fc-match が返すフォント実体ファイルパスを取る（Ubuntuではこれが一番確実）
-        # Noto CJKが無い環境でも落ちないように例外は握りつぶす
-        try:
-            path = subprocess.check_output(
-                ["bash", "-lc", "fc-match -f '%{file}\\n' 'Noto Sans CJK JP' | head -n 1"],
-                text=True
-            ).strip()
-        except Exception:
-            path = ""
+def main():
+    if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
+    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+        conf = yaml.safe_load(f)
 
-        if path:
-            try:
-                font_manager.fontManager.addfont(path)
-                name = font_manager.FontProperties(fname=path).get_name()
-                matplotlib.rcParams["font.family"] = name
-                matplotlib.rcParams["axes.unicode_minus"] = False
-            except Exception:
-                pass
-    except Exception:
-        pass
+    results = []
+    print("--- 経済指標（実戦データ）を取得中... ---")
+    for ind in conf['indicators']:
+        data = fetch_fred(ind['id'], units=ind.get('units', 'lin'))
+        if not data: continue
+        
+        diff = data['actual'] - data['previous']
+        # 0.01以下の微細な動きは「→(中立)」と判定するロジック
+        trend = "↑" if diff > 0.01 else "↓" if diff < -0.01 else "→"
+        is_pos = (diff > 0) if not ind.get('invert', False) else (diff < 0)
+        eval_text = "強い" if is_pos else "弱い"
+        if abs(diff) <= 0.01: eval_text = "中立"
 
-    plt.rcParams["axes.unicode_minus"] = False
-
-    fig = plt.figure(figsize=(14, max(4, 0.45 * (len(df)+1))), dpi=150)
-    ax = fig.add_subplot(111)
-    ax.axis("off")
-
-    ax.set_title(title, loc="left", fontsize=14, fontproperties=fp)
-
-    table = ax.table(
-        cellText=df[["bucket","label","period","actual","consensus","previous"]].values,
-        colLabels=["分類","指標","対象期","結果","予測","前回"],
-        loc="upper left",
-        cellLoc="left",
-        colLoc="left"
-    )
-
-    # テーブルの全セル文字にフォントを適用
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1, 1.2)
-
-    for cell in table.get_celld().values():
-        cell.get_text().set_fontproperties(fp)
-
-    fig.tight_layout()
-    fig.savefig(out_path, bbox_inches="tight")
-    plt.close(fig)
-
-def main(argv=None):
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--force', action='store_true', help='日付に関係なく実行')
-    args = ap.parse_args(argv)
-
-    if (not args.force) and (not should_run(dt.datetime.now(JST))):
-        print('Skip: not scheduled day (run on 16th or month-end). Use --force to override.')
-        return
-    cfg_path = Path("config/indicators.yaml")
-    if not cfg_path.exists():
-        raise FileNotFoundError("config/indicators.yaml が見つかりません")
-
-    cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
-    indicators = cfg.get("indicators", [])
-    if not indicators:
-        raise ValueError("indicators.yaml の indicators が空です")
-
-    rows = []
-    for ind in indicators:
-        fetcher = FETCHERS[ind["source"]]
-        actual = fetcher(ind)
-        rows.append({
-            "bucket": ind["bucket"],
-            "label": ind["label"],
-            "period": actual.get("period",""),
-            "actual": actual.get("value",""),
-            "previous": actual.get("previous",""),
-            "consensus": "",  # 予測は取れたら後で埋める
+        results.append({
+            "カテゴリ": ind['bucket'], 
+            "指標名": ind['label'],
+            "最新値": f"{data['actual']}{ind.get('unit','')}", 
+            "前回値": f"{data['previous']}{ind.get('unit','')}",
+            "トレンド": trend, 
+            "評価": eval_text
         })
 
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(results)
+    df.to_markdown(f"{OUTPUT_DIR}/note_table.md", index=False)
 
-    out_dir = Path("output")
-    out_dir.mkdir(exist_ok=True)
+    # --- デザイン性の高いPNG生成 ---
+    fig, ax = plt.subplots(figsize=(12, len(df)*0.6 + 1.2))
+    ax.axis('off')
+    tbl = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc='center')
+    
+    # フォントサイズとセルの高さ調整
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(11)
+    tbl.scale(1.2, 2.0)
+    
+    # ヘッダーを「経済 Macro NOTE」風のダークカラーに
+    for i in range(len(df.columns)):
+        tbl[0, i].set_facecolor('#2C3E50')  # ネイビーグレー
+        tbl[0, i].get_text().set_color('white')
+        tbl[0, i].get_text().set_weight('bold')
 
-    md_path = out_dir / "note_table.md"
-    png_path = out_dir / "note_table.png"
-    csv_path = out_dir / "raw.csv"
-
-    md_path.write_text(build_markdown(df), encoding="utf-8")
-    render_png(df, png_path, "日米 主要経済指標（テスト）")
-    df.to_csv(csv_path, index=False, encoding="utf-8")
-
-    print("OK:", md_path, png_path, csv_path)
+    plt.savefig(f"{OUTPUT_DIR}/note_table.png", bbox_inches='tight', dpi=150)
+    print(f"--- 完了！ ---")
+    print(f"生成パス: {os.path.abspath(OUTPUT_DIR)}/note_table.png")
 
 if __name__ == "__main__":
     main()

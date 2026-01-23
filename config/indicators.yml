@@ -1,0 +1,14 @@
+indicators:
+  # ① Inflation (前年比 pc1: インフレ率として表示)
+  - { bucket: "① Inflation", label: "消費者物価指数 (CPI)", id: "CPIAUCSL", units: "pc1", invert: false, unit: "%" }
+  - { bucket: "① Inflation", label: "PCE デフレーター", id: "PCEPI", units: "pc1", invert: false, unit: "%" }
+  # ② Employment (NFPは前月からの増減 chg、失業率はそのまま lin)
+  - { bucket: "② Employment", label: "非農業部門雇用者数 (NFP)", id: "PAYEMS", units: "chg", invert: false, unit: "K" }
+  - { bucket: "② Employment", label: "失業率", id: "UNRATE", units: "lin", invert: true, unit: "%" }
+  # ③ Consumption (小売売上高は前月比 pch)
+  - { bucket: "③ Consumption", label: "小売売上高", id: "RSXFS", units: "pch", invert: false, unit: "%" }
+  # ④ Sentiment (景況感はそのまま lin)
+  - { bucket: "④ Sentiment", label: "ミシガン大学消費者態度指数", id: "UMCSENT", units: "lin", invert: false, unit: "pt" }
+  # ⑦ Rates / FX (金利・ドル安はそのまま lin)
+  - { bucket: "⑦ Rates / FX", label: "米10年債利回り", id: "DGS10", units: "lin", invert: false, unit: "%" }
+  - { bucket: "⑦ Rates / FX", label: "ドルインデックス", id: "DTWEXBGS", units: "lin", invert: false, unit: "pt" }
