@@ -20,9 +20,9 @@ OUTPUT_MD = "analysis.md"
 
 # Gemini設定
 genai.configure(api_key=GOOGLE_API_KEY)
-# モデル名を明示的なフルネームに変更、または最新版を指定
-model = genai.GenerativeModel('gemini-1.5-flash') 
-# もし上記でダメな場合は 'gemini-1.5-pro' も試せますが、まずはこれでいきましょう
+# 'gemini-1.5-flash' ではなく 'gemini-1.5-flash-latest' またはシンプルに 'gemini-1.5-flash'
+# ここでは最も互換性の高い指定方法に変更します
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # ==========================================
 # 2. データ取得・処理ロジック
