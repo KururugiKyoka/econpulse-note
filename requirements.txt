@@ -1,4 +1,5 @@
 pandas
 matplotlib
-pyyaml
 requests
+pyyaml
+google-generativeai

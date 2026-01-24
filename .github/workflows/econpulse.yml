@@ -1,0 +1,38 @@
+name: Update econ table
+
+on:
+  schedule:
+    # 日本時間の毎月16日と月末の午前9時頃に実行
+    - cron: '0 0 16,28-31 * *'
+  workflow_dispatch: # 手動実行ボタンを出す設定
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run update script
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: python src/run.py --force
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add output/
+          git commit -m "Auto-update: economic data and charts" || echo "No changes to commit"
+          git push
