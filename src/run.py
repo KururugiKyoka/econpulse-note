@@ -54,9 +54,9 @@ def analyze_with_gemini(latest_values):
     {{ "summary": "...", "nfp_insight": "...", "dxy_trend": "...", "dxy_insight": "...", "cpi_insight": "...", "overall_outlook": "..." }}
     """
     
-    # 新しいSDKでの生成方法。モデルはリストにあった最新の2.0-flashを指定
+    # response = client.models.generate_content(...) の部分
     response = client.models.generate_content(
-        model='gemini-1.5-flash', 
+        model='gemini-1.5-flash', # または 'gemini-1.5-flash-latest'
         contents=prompt
     )
     
