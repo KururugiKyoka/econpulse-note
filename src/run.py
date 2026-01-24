@@ -49,30 +49,23 @@ def get_fred_data(indicators):
 # ==========================================
 # 3. AI分析ロジック (Gemini)
 # ==========================================
-def analyze_with_gemini(latest_values):
-    prompt = f"""
-    あなたはプロのマクロ経済アナリストです。以下の最新経済指標データ（FRED）を分析し、
-    投資家向けレポート「経済 Macro NOTE (KURURUGI)」の内容を生成してください。
+# APIキーが空文字でないかチェック
+if not GOOGLE_API_KEY:
+    raise ValueError("Error: GOOGLE_API_KEY が設定されていません。GitHubのSecretsを確認してください。")
 
-    【データ】
-    - 非農業部門雇用者数 (NFP): {latest_values.get('非農業部門雇用者数 (NFP)', 'N/A')}
-    - ドルインデックス (DXY): {latest_values.get('ドルインデックス', 'N/A')}
-    - 消費者物価指数 (CPI): {latest_values.get('消費者物価指数 (CPI)', 'N/A')}
+genai.configure(api_key=GOOGLE_API_KEY)
 
-    【出力ルール】
-    必ず以下のキーを持つJSON形式で出力してください。Markdownの装飾はJSON内部には含めず、テキストのみにしてください。
-    - summary: 今週の要点3つ（箇条書き形式のテキスト）
-    - nfp_insight: 雇用統計から読み取れる労働市場の洞察
-    - dxy_trend: ドル指数の短期的なトレンド（上昇/下落/レンジ）
-    - dxy_insight: 通貨パワーバランスに関する分析
-    - cpi_insight: インフレリスクとFRBの動向予測
-    - overall_outlook: 総括と来週の戦略的視点
-    """
-    
-    response = model.generate_content(prompt)
-    # JSON部分のみを抽出（```json ... ``` の除去）
-    raw_text = response.text.replace('```json', '').replace('```', '').strip()
-    return json.loads(raw_text)
+# 【デバッグ用】利用可能なモデルをログに出力（一度動いたら消してOKです）
+print("🤖 Checking available models...")
+try:
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            print(f"  - Available: {m.name}")
+except Exception as e:
+    print(f"⚠️ Could not list models: {e}")
+
+# 最も標準的な名前を指定（'models/' プレフィックスを付けるのが現在のSDKの推奨です）
+model = genai.GenerativeModel('models/gemini-1.5-flash')
 
 # ==========================================
 # 4. Markdown生成 (プロフェッショナル版)
