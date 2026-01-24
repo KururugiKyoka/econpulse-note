@@ -56,7 +56,7 @@ def analyze_with_gemini(latest_values):
     
     # 新しいSDKでの生成方法。モデルはリストにあった最新の2.0-flashを指定
     response = client.models.generate_content(
-        model='gemini-2.0-flash', 
+        model='gemini-1.5-flash', 
         contents=prompt
     )
     
