@@ -2,10 +2,10 @@ import os
 import yaml
 import datetime
 import json
-import re  # 正規表現を追加
+import re
 import pandas as pd
 from fredapi import Fred
-import google.generativeai as genai
+from google import genai  # 新しいSDK
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
@@ -19,13 +19,9 @@ FONT_PATH = "ipaexg.ttf"
 OUTPUT_IMAGE = "output_sns.png"
 OUTPUT_MD = "analysis.md"
 
-genai.configure(api_key=GOOGLE_API_KEY)
-# スクリーンショットのリストにあった正確なモデル名を使用
-model = genai.GenerativeModel('gemini-1.5-flash')
+# 新しいクライアントの初期化
+client = genai.Client(api_key=GOOGLE_API_KEY)
 
-# ==========================================
-# 2. データ取得
-# ==========================================
 def load_config():
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         return yaml.safe_load(f)
@@ -43,34 +39,36 @@ def get_fred_data(indicators):
     return data_results, latest_values
 
 # ==========================================
-# 3. AI分析ロジック (Gemini)
+# 3. AI分析ロジック (New SDK版)
 # ==========================================
 def analyze_with_gemini(latest_values):
     prompt = f"""
-    マクロ経済アナリストとして、以下の指標を分析しJSONで回答してください。
+    マクロ経済アナリストとして以下の指標を分析し、JSONで回答してください。
     【データ】
     - NFP: {latest_values.get('非農業部門雇用者数 (NFP)', 'N/A')}
     - DXY: {latest_values.get('ドルインデックス', 'N/A')}
     - CPI: {latest_values.get('消費者物価指数 (CPI)', 'N/A')}
 
     【出力形式】
-    以下のキーを持つJSONのみを出力してください。
+    以下のキーを持つJSONのみを返してください。
     {{ "summary": "...", "nfp_insight": "...", "dxy_trend": "...", "dxy_insight": "...", "cpi_insight": "...", "overall_outlook": "..." }}
     """
     
-    response = model.generate_content(prompt)
+    # 新しいSDKでの生成方法。モデルはリストにあった最新の2.0-flashを指定
+    response = client.models.generate_content(
+        model='gemini-2.0-flash', 
+        contents=prompt
+    )
     
-    # JSON抽出の強化版: ```json ... ``` があっても中身だけを抜き出す
     text = response.text
     json_match = re.search(r'\{.*\}', text, re.DOTALL)
     if json_match:
         return json.loads(json_match.group())
     else:
-        # 抽出に失敗した場合は生テキストでフォールバック
-        raise ValueError(f"Geminiからの回答がJSON形式ではありませんでした: {text}")
+        raise ValueError(f"JSON変換失敗: {text}")
 
 # ==========================================
-# 4. Markdown生成
+# 4. Markdown & 画像生成
 # ==========================================
 def generate_professional_markdown(analysis, latest_values):
     today = datetime.date.today().strftime("%Y/%m/%d")
@@ -90,7 +88,6 @@ def generate_professional_markdown(analysis, latest_values):
 | 指標 | 現在値 | トレンド |
 | :--- | :--- | :--- |
 | **DXY** | {latest_values.get('ドルインデックス')} | {analysis.get('dxy_trend')} |
-* **視点:** {analysis.get('dxy_insight')}
 
 ### 3. CPI (消費者物価)
 * **注目:** {analysis.get('cpi_insight')}
@@ -99,9 +96,6 @@ def generate_professional_markdown(analysis, latest_values):
 {analysis.get('overall_outlook')}
 """
 
-# ==========================================
-# 5. 画像生成 & メイン
-# ==========================================
 def create_sns_image(data_results, config):
     plt.style.use('dark_background')
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
@@ -110,17 +104,17 @@ def create_sns_image(data_results, config):
     for i, label in enumerate(target_labels[:3]):
         ax = axes[i]
         df = data_results[label]
-        ax.plot(df.index, df.values, color='#00ffcc')
+        ax.plot(df.index, df.values, color='#00ffcc', linewidth=2)
         ax.set_title(label, fontproperties=prop)
     plt.tight_layout()
     plt.savefig(OUTPUT_IMAGE)
 
 def main():
-    print("🚀 Starting Economic Macro Insight generation...")
+    print("🚀 Starting Economic Macro Insight (v2026 SDK)...")
     config = load_config()
     data, latest = get_fred_data(config['indicators'])
     
-    print("🧠 Analyzing data with Gemini...")
+    print("🧠 Analyzing with Gemini 2.0 Flash...")
     try:
         analysis_json = analyze_with_gemini(latest)
         final_md = generate_professional_markdown(analysis_json, latest)
@@ -129,8 +123,7 @@ def main():
         create_sns_image(data, config)
         print("✅ All processes completed successfully!")
     except Exception as e:
-        print(f"❌ Error during analysis: {e}")
-        # エラー詳細を出力して終了
+        print(f"❌ Error: {e}")
         exit(1)
 
 if __name__ == "__main__":
