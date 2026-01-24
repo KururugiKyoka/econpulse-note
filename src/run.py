@@ -90,7 +90,10 @@ def main():
     ax_sns.axis('off')
     plt.text(0.5, 0.88, "DAILY MACRO HIGHLIGHT", transform=ax_sns.transAxes, ha='center', fontsize=32, fontweight='bold', color='#1A237E')
     plt.text(0.5, 0.80, "経済 Macro NOTE (KURURUGI)", transform=ax_sns.transAxes, ha='center', fontsize=20, color='#666666')
-    target_labels = ["フィラデルフィア連銀景況指数", "ドルインデックス (先進国)", "非農業部門雇用者数 (NFP)"]
+
+    # 🌟 YAML（indicators.yml）の label と一字一句合わせました
+    target_labels = ["非農業部門雇用者数 (NFP)" ,"ドルインデックス" ,"消費者物価指数 (CPI)"]
+
     picks = [r for r in results if r[1] in target_labels]
     for i, h in enumerate(picks[:3]):
         y = 0.58 - (i * 0.20)
@@ -100,6 +103,11 @@ def main():
         plt.text(0.50, y - 0.06, f"前回: {h[3]}  /  判定: {h[5]}", transform=ax_sns.transAxes, ha='center', fontsize=14, color='gray')
     plt.savefig(f"{OUTPUT_DIR}/sns_share.png", bbox_inches='tight', dpi=100, facecolor='white')
 
+    # 🌟 データの取得状況をチェックする「安全ネット」を追加
+    if not results:
+        print("❌ データが取得できませんでした。APIキーの設定やネットワークを確認してください。")
+        return
+    
     # 3. AI分析
     analysis = generate_ai_analysis(results)
     with open(f"{OUTPUT_DIR}/analysis.md", "w", encoding="utf-8") as f:
