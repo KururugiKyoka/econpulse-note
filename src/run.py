@@ -39,40 +39,54 @@ def get_fred_data(indicators):
 def analyze_with_gemini(latest_values):
     prompt = f"指標データを分析しJSONで回答してください。NFP:{latest_values.get('非農業部門雇用者数 (NFP)')}, DXY:{latest_values.get('ドルインデックス')}, CPI:{latest_values.get('消費者物価指数 (CPI)')}. JSONキー: summary, nfp_insight, dxy_trend, dxy_insight, cpi_insight, overall_outlook"
     
+    last_error = None
     for attempt in range(3):
         try:
-            # 安定版モデルを指定
-            response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+            # モデル名から 'models/' を外し、SDKに自動解決させます
+            response = client.models.generate_content(
+                model='gemini-1.5-flash', 
+                contents=prompt
+            )
             json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
-            return json.loads(json_match.group())
+            if json_match:
+                return json.loads(json_match.group())
         except Exception as e:
+            last_error = e
             print(f"⚠️ リトライ中... ({attempt+1}/3): {e}")
             time.sleep(60) # 制限回避のため1分待機
-    raise e
+    
+    # ループ終了後に最後のエラーを投げる（UnboundLocalError回避）
+    raise last_error if last_error else Exception("Unknown error in Gemini API")
 
 def main():
-    print("🚀 Running KURURUGI Macro System...")
-    config = load_config()
-    data, latest = get_fred_data(config['indicators'])
-    analysis = analyze_with_gemini(latest)
-    
-    # Markdown生成
-    today = datetime.date.today().strftime("%Y/%m/%d")
-    report = f"# 【Weekly Macro Insight】\\n📅 *{today}*\\n\\n## 📈 要約\\n> {analysis['summary']}\\n\\n## 🔍 指標分析\\n### NFP: {latest.get('非農業部門雇用者数 (NFP)')}\\n{analysis['nfp_insight']}\\n\\n### DXY: {latest.get('ドルインデックス')}\\nトレンド: {analysis['dxy_trend']}\\n\\n### CPI: {latest.get('消費者物価指数 (CPI)')}\\n{analysis['cpi_insight']}\\n\\n## 💡 総括\\n{analysis['overall_outlook']}"
-    
-    with open(OUTPUT_MD, "w", encoding="utf-8") as f:
-        f.write(report)
-    
-    # 画像生成
-    plt.style.use('dark_background')
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    prop = fm.FontProperties(fname=FONT_PATH)
-    for i, label in enumerate(list(data.keys())[:3]):
-        axes[i].plot(data[label].index, data[label].values, color='#00ffcc')
-        axes[i].set_title(label, fontproperties=prop)
-    plt.tight_layout()
-    plt.savefig(OUTPUT_IMAGE)
-    print("✅ Successfully completed!")
+    print("🚀 Running KURURUGI Macro System (2026.01.25)...")
+    try:
+        config = load_config()
+        data, latest = get_fred_data(config['indicators'])
+        
+        print("🧠 Analyzing with Gemini...")
+        analysis = analyze_with_gemini(latest)
+        
+        # Markdown生成
+        today = datetime.date.today().strftime("%Y/%m/%d")
+        report = f"# 【Weekly Macro Insight】\\n📅 *{today}*\\n\\n## 📈 要約\\n> {analysis['summary']}\\n\\n## 🔍 指標分析\\n### NFP: {latest.get('非農業部門雇用者数 (NFP)')}\\n{analysis['nfp_insight']}\\n\\n### DXY: {latest.get('ドルインデックス')}\\nトレンド: {analysis['dxy_trend']}\\n\\n### CPI: {latest.get('消費者物価指数 (CPI)')}\\n{analysis['cpi_insight']}\\n\\n## 💡 総括\\n{analysis['overall_outlook']}"
+        
+        with open(OUTPUT_MD, "w", encoding="utf-8") as f:
+            f.write(report)
+        
+        # 画像生成
+        plt.style.use('dark_background')
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        prop = fm.FontProperties(fname=FONT_PATH)
+        for i, label in enumerate(list(data.keys())[:3]):
+            axes[i].plot(data[label].index, data[label].values, color='#00ffcc')
+            axes[i].set_title(label, fontproperties=prop)
+        plt.tight_layout()
+        plt.savefig(OUTPUT_IMAGE)
+        print("✅ Successfully completed!")
+    except Exception as e:
+        print(f"❌ Critical Error: {e}")
+        exit(1)
 
 if __name__ == "__main__":
     main()
