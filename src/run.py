@@ -37,14 +37,14 @@ def get_fred_data(indicators):
     return data_results, latest_values
 
 def analyze_with_gemini(latest_values):
-    prompt = f"指標データを分析しJSONで回答してください。NFP:{latest_values.get('非農業部門雇用者数 (NFP)')}, DXY:{latest_values.get('ドルインデックス')}, CPI:{latest_values.get('消費者物価指数 (CPI)')}. JSONキー: summary, nfp_insight, dxy_trend, dxy_insight, cpi_insight, overall_outlook"
+    prompt = f"指標データを分析しJSONで回答してください。NFP:{latest_values.get('非農業部門雇用者数 (NFP)')}, DXY:{latest_values.get('ドルインデックス')}, CPI:{latest_values.get('消費者物価指数 (CPI)')}. キー: summary, nfp_insight, dxy_trend, dxy_insight, cpi_insight, overall_outlook"
     
     last_error = None
     for attempt in range(3):
         try:
-            # モデル名から 'models/' を外し、SDKに自動解決させます
+            # 昨夜、接続が確認できた 2.0-flash に固定します
             response = client.models.generate_content(
-                model='gemini-1.5-flash', 
+                model='gemini-2.0-flash', 
                 contents=prompt
             )
             json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
@@ -52,29 +52,27 @@ def analyze_with_gemini(latest_values):
                 return json.loads(json_match.group())
         except Exception as e:
             last_error = e
-            print(f"⚠️ リトライ中... ({attempt+1}/3): {e}")
-            time.sleep(60) # 制限回避のため1分待機
+            # クォータ制限（RESOURCE_EXHAUSTED）が出た場合は長めに待機
+            print(f"⚠️ 接続待機中... ({attempt+1}/3): {e}")
+            time.sleep(45) 
     
-    # ループ終了後に最後のエラーを投げる（UnboundLocalError回避）
-    raise last_error if last_error else Exception("Unknown error in Gemini API")
+    raise last_error if last_error else Exception("Unknown API error")
 
 def main():
-    print("🚀 Running KURURUGI Macro System (2026.01.25)...")
+    print("🚀 Running KURURUGI Macro System (2026.01.25-Final)...")
     try:
         config = load_config()
         data, latest = get_fred_data(config['indicators'])
         
-        print("🧠 Analyzing with Gemini...")
+        print("🧠 Analyzing with Gemini 2.0 Flash...")
         analysis = analyze_with_gemini(latest)
         
-        # Markdown生成
         today = datetime.date.today().strftime("%Y/%m/%d")
         report = f"# 【Weekly Macro Insight】\\n📅 *{today}*\\n\\n## 📈 要約\\n> {analysis['summary']}\\n\\n## 🔍 指標分析\\n### NFP: {latest.get('非農業部門雇用者数 (NFP)')}\\n{analysis['nfp_insight']}\\n\\n### DXY: {latest.get('ドルインデックス')}\\nトレンド: {analysis['dxy_trend']}\\n\\n### CPI: {latest.get('消費者物価指数 (CPI)')}\\n{analysis['cpi_insight']}\\n\\n## 💡 総括\\n{analysis['overall_outlook']}"
         
         with open(OUTPUT_MD, "w", encoding="utf-8") as f:
             f.write(report)
         
-        # 画像生成
         plt.style.use('dark_background')
         fig, axes = plt.subplots(1, 3, figsize=(18, 6))
         prop = fm.FontProperties(fname=FONT_PATH)
@@ -83,7 +81,7 @@ def main():
             axes[i].set_title(label, fontproperties=prop)
         plt.tight_layout()
         plt.savefig(OUTPUT_IMAGE)
-        print("✅ Successfully completed!")
+        print("✅ All processes completed! Check analysis.md and output_sns.png")
     except Exception as e:
         print(f"❌ Critical Error: {e}")
         exit(1)
