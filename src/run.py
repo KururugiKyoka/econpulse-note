@@ -37,26 +37,34 @@ def get_fred_data(indicators):
     return data_results, latest_values
 
 def analyze_with_gemini(latest_values):
-    prompt = f"指標データを分析しJSONで回答してください。NFP:{latest_values.get('非農業部門雇用者数 (NFP)')}, DXY:{latest_values.get('ドルインデックス')}, CPI:{latest_values.get('消費者物価指数 (CPI)')}. キー: summary, nfp_insight, dxy_trend, dxy_insight, cpi_insight, overall_outlook"
+    prompt = f"指標データを分析しJSONで回答してください。NFP:{latest_values.get('非農業部門雇用者数 (NFP)')}, DXY:{latest_values.get('ドルインデックス')}, CPI:{latest_values.get('消費者物価指数 (CPI)')}. JSONキー: summary, nfp_insight, dxy_trend, dxy_insight, cpi_insight, overall_outlook"
     
+    # 試行するモデルの優先順位
+    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash-8b']
     last_error = None
-    for attempt in range(3):
-        try:
-            # 昨夜、接続が確認できた 2.0-flash に固定します
-            response = client.models.generate_content(
-                model='gemini-2.0-flash', 
-                contents=prompt
-            )
-            json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-        except Exception as e:
-            last_error = e
-            # クォータ制限（RESOURCE_EXHAUSTED）が出た場合は長めに待機
-            print(f"⚠️ 接続待機中... ({attempt+1}/3): {e}")
-            time.sleep(45) 
+
+    for model_name in models_to_try:
+        print(f"🧠 Trying model: {model_name}...")
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=model_name, 
+                    contents=prompt
+                )
+                json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
+                if json_match:
+                    return json.loads(json_match.group())
+            except Exception as e:
+                last_error = e
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    # 制限にかかったら長めに待機（90秒）
+                    wait_time = 90
+                    print(f"⚠️ クォータ制限（429）。{wait_time}秒待機して再試行します...")
+                    time.sleep(wait_time)
+                    continue
+                break # 他のエラーなら次のモデルへ
     
-    raise last_error if last_error else Exception("Unknown API error")
+    raise last_error if last_error else Exception("分析に失敗しました。")
 
 def main():
     print("🚀 Running KURURUGI Macro System (2026.01.25-Final)...")
