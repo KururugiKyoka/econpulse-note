@@ -13,8 +13,8 @@ indicators:
     label: "ミシガン大学消費者態度指数"
   - id: "T10Y2Y"
     label: "米10年-2年金利差 (Yield Curve)"
-  - id: "NAPM" # 安定して取得可能な ISM 製造業景況指数
-    label: "ISM 製造業景況指数 (PMI)"
+  - id: "INDPRO" # 最も安定して取得可能な「鉱工業生産指数」
+    label: "鉱工業生産指数 (INDPRO)"
 
 # リセッション・アラートのしきい値
 thresholds:
@@ -23,4 +23,4 @@ thresholds:
   michigan_val_min: 60.0
   retail_yoy_min: 0.0
   yield_curve_max: 0.0
-  pmi_min: 50.0
+  indpro_yoy_min: 0.0 # 0を下回ると生産収縮で赤
