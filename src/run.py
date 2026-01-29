@@ -19,86 +19,68 @@ def load_config():
 
 def get_fred_data(indicators):
     fred = Fred(api_key=FRED_API_KEY)
-    data_results = {}
-    yoy_results = {}
-    latest_values = {}
+    data_results, yoy_results, latest_values = {}, {}, {}
     
     for item in indicators:
-        series_id = item['id']
-        label = item['label']
-        # 前年比計算のため25ヶ月分取得
+        series_id, label = item['id'], item['label']
         series = fred.get_series(series_id).tail(25)
         
-        # 実数値（直近12ヶ月）
         data_results[label] = series.tail(12)
-        
-        # 前年比（％）を計算
         yoy = (series / series.shift(12) - 1) * 100
         yoy_results[label] = yoy.tail(12)
         
-        latest_values[label] = {
-            'value': series.iloc[-1],
-            'yoy': yoy.iloc[-1]
-        }
+        latest_values[label] = {'value': series.iloc[-1], 'yoy': yoy.iloc[-1]}
     return data_results, yoy_results, latest_values
 
 def generate_report(latest_values):
     today = datetime.date.today().strftime("%Y/%m/%d")
-    
-    lines = [f"# 【Weekly Macro Data】経済 Macro NOTE (KURURUGI)", f"📅 *更新日: {today}*", "---", "## 📊 指標の最新値 (実数値 & 前年比)"]
-    
+    lines = [f"# 【Weekly Macro Data】経済 Macro NOTE", f"📅 *更新日: {today}*", "---"]
     for label, v in latest_values.items():
-        val = f"{v['value']:.2f}" if "指数" in label or "CPI" in label or "PCE" in label else f"{v['value']:,}"
-        yoy_str = f"{v['yoy']:+.2f}%"
-        lines.append(f"### {label}")
-        lines.append(f"* **最新値:** {val}")
-        lines.append(f"* **前年比:** {yoy_str}")
-        lines.append("")
-        
-    lines.append("---\\n**Powered by KURURUGI Data System**")
+        val = f"{v['value']:.2f}" if any(x in label for x in ["指数", "CPI", "PCE", "利回り", "ドル"]) else f"{v['value']:,}"
+        lines.append(f"### {label}\\n* **最新値:** {val}\\n* **前年比:** {v['yoy']:+.2f}%")
     return "\\n".join(lines)
 
 def create_dashboard(data_results, yoy_results):
     plt.style.use('dark_background')
-    # 2段構成に変更 (上段: 実数値, 下段: 前年比)
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-    prop = fm.FontProperties(fname=FONT_PATH)
     labels = list(data_results.keys())
+    num_inds = len(labels)
     
-    for i in range(3):
-        label = labels[i]
+    # 4行4列のレイアウト（1指標につき2グラフ使用：レベルとYoY）
+    fig, axes = plt.subplots(4, 4, figsize=(24, 18))
+    prop = fm.FontProperties(fname=FONT_PATH)
+    
+    for i, label in enumerate(labels):
+        row = i // 2  # 0,0,1,1,2,2,3,3
+        col_base = (i % 2) * 2 # 0, 2
         
-        # 上段：実数値（レベル）
-        axes[0, i].plot(data_results[label].index, data_results[label].values, color='#00ffcc', linewidth=2, marker='o', markersize=4)
-        axes[0, i].set_title(f"{label} (レベル)", fontproperties=prop)
-        axes[0, i].grid(True, alpha=0.2)
-        
-        # 下段：前年比（％）
-        axes[1, i].bar(yoy_results[label].index, yoy_results[label].values, color='#ff66cc', alpha=0.7)
-        axes[1, i].set_title(f"{label} (前年比 %)", fontproperties=prop)
-        axes[1, i].grid(True, alpha=0.2)
-        # 0ラインを強調
-        axes[1, i].axhline(0, color='white', linewidth=0.8)
+        # 左側：実数値（レベル）
+        ax_l = axes[row, col_base]
+        ax_l.plot(data_results[label].index, data_results[label].values, color='#00ffcc', linewidth=2, marker='o', markersize=3)
+        ax_l.set_title(f"{label} (レベル)", fontproperties=prop, fontsize=10)
+        ax_l.grid(True, alpha=0.15)
+        ax_l.tick_params(axis='both', which='major', labelsize=8)
+
+        # 右側：前年比（％）
+        ax_r = axes[row, col_base + 1]
+        ax_r.bar(yoy_results[label].index, yoy_results[label].values, color='#ff66cc', alpha=0.7)
+        ax_r.set_title(f"{label} (YoY %)", fontproperties=prop, fontsize=10)
+        ax_r.grid(True, alpha=0.15)
+        ax_r.axhline(0, color='white', linewidth=0.5)
+        ax_r.tick_params(axis='both', which='major', labelsize=8)
 
     plt.tight_layout()
-    plt.savefig(OUTPUT_IMAGE)
+    plt.savefig(OUTPUT_IMAGE, dpi=150)
 
 def main():
-    print("🚀 Running KURURUGI Macro System (YoY Enhanced Version)...")
     try:
         config = load_config()
         data, yoy, latest = get_fred_data(config['indicators'])
-        
-        # Markdown生成
         with open(OUTPUT_MD, "w", encoding="utf-8") as f:
             f.write(generate_report(latest))
-            
-        # 画像生成
         create_dashboard(data, yoy)
-        print("✅ Success! Updated with YoY data.")
+        print("✅ Success! 16-chart dashboard generated.")
     except Exception as e:
-        print(f"❌ Error: {e}")
-        exit(1)
+        print(f"❌ Error: {e}"); exit(1)
 
 if __name__ == "__main__":
     main()
