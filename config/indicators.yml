@@ -16,7 +16,7 @@ indicators:
   - id: "INDPRO"
     label: "鉱工業生産指数 (INDPRO)"
   - id: "DTWEXBGS"
-    label: "ドルインデックス (DXY)"
+    label: "実効ドル相場 (Broad USD Index)"
   - id: "ICSA"
     label: "新規失業保険申請件数 (Claims)"
   - id: "DCOILWTICO"

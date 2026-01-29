@@ -39,15 +39,14 @@ def generate_report(latest_values, thresholds):
     lines = [f"# 【Weekly Macro Data】経済 Macro NOTE", f"📅 *最終更新: {today}*", "---", "## 📊 主要12指標サマリー", "---"]
     for label, v in latest_values.items():
         suffix = "pt 差" if "Curve" in label else "%"
-        val = f"{v['value']:.2f}" if any(x in label for x in ["指数", "CPI", "PCE", "Curve", "DXY", "Oil", "S&P"]) else f"{v['value']:,}"
+        val = f"{v['value']:.2f}" if any(x in label for x in ["指数", "CPI", "PCE", "Curve", "USD", "Oil", "S&P"]) else f"{v['value']:,}"
         lines.append(f"### {label}\\n* 最新: {val} / 前年比(差): {v['yoy']:+.2f}{suffix}")
     return "\\n".join(lines)
 
 def create_dashboard(data_results, yoy_results, thresholds):
     plt.style.use('dark_background')
     labels = list(data_results.keys())
-    # 6行4列。1枚あたりの幅を確保するため figsize=(24, 30)
-    fig, axes = plt.subplots(6, 4, figsize=(24, 30))
+    fig, axes = plt.subplots(6, 4, figsize=(24, 35))
     prop = fm.FontProperties(fname=FONT_PATH)
     fig.suptitle(f"Weekly Macroeconomic Dashboard (Updated: {datetime.date.today():%Y/%m/%d})", color='white', fontsize=32, fontproperties=prop, y=0.98)
     
@@ -83,14 +82,14 @@ def create_dashboard(data_results, yoy_results, thresholds):
             ax.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
             ax.tick_params(labelsize=10); ax.grid(True, alpha=0.1)
 
-    plt.subplots_adjust(top=0.95, bottom=0.03, hspace=0.4, wspace=0.3)
+    plt.subplots_adjust(top=0.95, bottom=0.03, hspace=0.45, wspace=0.3)
     plt.savefig(OUTPUT_IMAGE, dpi=300, bbox_inches='tight')
 
 def main():
     try:
         config = load_config(); data, yoy, latest = get_fred_data(config['indicators']); th = config['thresholds']
         with open(OUTPUT_MD, "w", encoding="utf-8") as f: f.write(generate_report(latest, th))
-        create_dashboard(data, yoy, th); print("✅ 24-Panel High-Visibility Dashboard Complete!")
+        create_dashboard(data, yoy, th); print("✅ Dashboard Label Update Complete!")
     except Exception as e: print(f"❌ Error: {e}")
 
 if __name__ == "__main__": main()
