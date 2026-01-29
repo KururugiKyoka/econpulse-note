@@ -1,1 +1,22 @@
-AI分析エラー: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+# 【Weekly Macro Data】経済 Macro NOTE (KURURUGI)
+📅 *データ更新日: 2026/01/29*
+
+---
+## 📊 主要指標の最新値
+最新の経済データをFRED（セントルイス連邦準備銀行）より取得しました。
+
+### 1. 雇用統計 (NFP)
+* **最新値:** 159526.0
+
+### 2. ドル指数 (DXY)
+* **最新値:** 119.2855
+
+### 3. 消費者物価 (CPI)
+* **最新値:** 326.03
+
+---
+## 📈 チャート確認
+詳細な推移については、同フォルダ内に生成された `output_sns.png` を参照してください。
+
+---
+**Powered by KURURUGI Data System**
