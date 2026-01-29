@@ -5,8 +5,11 @@ import pandas as pd
 from fredapi import Fred
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+import matplotlib.dates as mdates
 
-# 基本設定
+# ==========================================
+# 1. 環境設定
+# ==========================================
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 CONFIG_PATH = "config/indicators.yml"
 FONT_PATH = "ipaexg.ttf"
@@ -21,13 +24,23 @@ def get_fred_data(indicators):
     fred = Fred(api_key=FRED_API_KEY)
     data_results, yoy_results, latest_values = {}, {}, {}
     
+    # 前年比計算のため26ヶ月分取得（月次リサンプリング考慮）
+    end_date = datetime.date.today()
+    start_date = end_date - pd.DateOffset(months=26)
+    
     for item in indicators:
         series_id, label = item['id'], item['label']
-        # 前年比計算のため25ヶ月分取得
-        series = fred.get_series(series_id).tail(25)
+        series = fred.get_series(series_id, observation_start=start_date)
         
-        data_results[label] = series.tail(12)
+        # --- 横軸同期の肝：すべてのデータを「月初リサンプリング」で統一 ---
+        # 日次データは月の最終値を取得、月次データはそのまま維持
+        series = series.resample('MS').last()
+        
+        # 前年比(YoY)を計算
         yoy = (series / series.shift(12) - 1) * 100
+        
+        # グラフ表示用に直近12ヶ月を切り出す
+        data_results[label] = series.tail(12)
         yoy_results[label] = yoy.tail(12)
         
         latest_values[label] = {'value': series.iloc[-1], 'yoy': yoy.iloc[-1]}
@@ -53,7 +66,6 @@ def generate_report(latest_values, thresholds):
 def create_dashboard(data_results, yoy_results, thresholds):
     plt.style.use('dark_background')
     labels = list(data_results.keys())
-    # 全体サイズを大きくし、タイトルのためのスペース(top=0.9)を確保
     fig, axes = plt.subplots(4, 4, figsize=(24, 20))
     prop = fm.FontProperties(fname=FONT_PATH)
     
@@ -68,15 +80,15 @@ def create_dashboard(data_results, yoy_results, thresholds):
     for i, label in enumerate(labels):
         row, col_base = i // 2, (i % 2) * 2
         
-        # 実数値
+        # 1. 実数値グラフ (Level)
+        ax_l = axes[row, col_base]
         data = data_results[label]
         c_l = alert_color if label == "ミシガン大学消費者態度指数" and data.iloc[-1] < thresholds['michigan_val_min'] else normal_line
-        axes[row, col_base].plot(data.index, data.values, color=c_l, linewidth=2.5, marker='o', markersize=5)
-        axes[row, col_base].set_title(f"{label} (Level)", fontproperties=prop, fontsize=12)
-        axes[row, col_base].tick_params(labelsize=10)
-        axes[row, col_base].grid(True, alpha=0.15)
-
-        # 前年比
+        ax_l.plot(data.index, data.values, color=c_l, linewidth=2.5, marker='o', markersize=5)
+        ax_l.set_title(f"{label} (Level)", fontproperties=prop, fontsize=12)
+        
+        # 2. 前年比グラフ (YoY)
+        ax_r = axes[row, col_base + 1]
         yoy = yoy_results[label]
         colors_r = []
         for val in yoy:
@@ -85,15 +97,19 @@ def create_dashboard(data_results, yoy_results, thresholds):
             elif label == "失業率" and val > thresholds['unrate_yoy_max']: c = alert_color
             elif label == "小売売上高" and val < thresholds['retail_yoy_min']: c = alert_color
             colors_r.append(c)
+        
+        ax_r.bar(yoy.index, yoy.values, color=colors_r, alpha=0.8, width=20)
+        ax_r.set_title(f"{label} (YoY %)", fontproperties=prop, fontsize=12)
+        ax_r.axhline(0, color='white', linewidth=0.8)
 
-        axes[row, col_base + 1].bar(yoy.index, yoy.values, color=colors_r, alpha=0.8)
-        axes[row, col_base + 1].set_title(f"{label} (YoY %)", fontproperties=prop, fontsize=12)
-        axes[row, col_base + 1].tick_params(labelsize=10)
-        axes[row, col_base + 1].grid(True, alpha=0.15)
-        axes[row, col_base + 1].axhline(0, color='white', linewidth=0.8)
+        # 3. 横軸（X軸）の同期とフォーマット統一
+        for ax in [ax_l, ax_r]:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%y/%m')) # '25/01'形式
+            ax.xaxis.set_major_locator(mdates.MonthLocator(interval=3)) # 3ヶ月毎
+            ax.tick_params(labelsize=10)
+            ax.grid(True, alpha=0.15)
 
     plt.subplots_adjust(top=0.92, bottom=0.05, hspace=0.3, wspace=0.2)
-    # 高解像度(DPI=300)で保存
     plt.savefig(OUTPUT_IMAGE, dpi=300, bbox_inches='tight')
 
 def main():
@@ -101,12 +117,10 @@ def main():
         config = load_config()
         data, yoy, latest = get_fred_data(config['indicators'])
         th = config['thresholds']
-        
         with open(OUTPUT_MD, "w", encoding="utf-8") as f:
             f.write(generate_report(latest, th))
-        
         create_dashboard(data, yoy, th)
-        print("✅ Success! Dashboard with branding and dynamic thresholds generated.")
+        print("✅ Success! Synchronized 16-chart dashboard generated.")
     except Exception as e:
         print(f"❌ Error: {e}"); exit(1)
 
