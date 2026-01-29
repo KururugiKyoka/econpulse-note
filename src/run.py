@@ -24,7 +24,6 @@ def get_fred_data(indicators):
     fred = Fred(api_key=FRED_API_KEY)
     data_results, yoy_results, latest_values = {}, {}, {}
     
-    # 前年比計算のため26ヶ月分取得
     end_date = datetime.date.today()
     start_date = end_date - pd.DateOffset(months=26)
     
@@ -36,7 +35,6 @@ def get_fred_data(indicators):
         series = series.resample('MS').last()
         yoy = (series / series.shift(12) - 1) * 100
         
-        # 直近12ヶ月を切り出し
         data_results[label] = series.tail(12)
         yoy_results[label] = yoy.tail(12)
         latest_values[label] = {'value': series.iloc[-1], 'yoy': yoy.iloc[-1]}
@@ -85,7 +83,7 @@ def create_dashboard(data_results, yoy_results, thresholds):
         ax_r.set_title(f"{label} (YoY %)", fontproperties=prop, fontsize=12)
         ax_r.axhline(0, color='white', linewidth=0.8)
 
-        # 横軸フォーマットの統一
+        # 横軸フォーマットの同期
         for ax in [ax_l, ax_r]:
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%y/%m'))
             ax.xaxis.set_major_locator(mdates.MonthLocator(interval=3))

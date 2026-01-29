@@ -2,7 +2,7 @@ name: Update econ table
 
 on:
   schedule:
-    - cron: '0 0 * * 1' # 毎週月曜日に実行
+    - cron: '0 0 * * 1' # 毎週月曜日
   workflow_dispatch:      # 手動実行用
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # 全履歴を取得して競合を避けやすくする
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -34,5 +34,5 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add output/
           git commit -m "Auto-update: economic data and charts" || exit 0
-          git pull --rebase origin main  # 競合を避けるための魔法の1行
+          git pull --rebase origin main  # 競合を回避する魔法の1行
           git push origin main
