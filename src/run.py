@@ -1,24 +1,19 @@
 import os
 import yaml
 import datetime
-import json
-import re
-import time
 import pandas as pd
 from fredapi import Fred
-from google import genai
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
-# 設定
+# ==========================================
+# 1. 環境設定
+# ==========================================
 FRED_API_KEY = os.getenv("FRED_API_KEY")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 CONFIG_PATH = "config/indicators.yml"
 FONT_PATH = "ipaexg.ttf"
 OUTPUT_IMAGE = "output_sns.png"
 OUTPUT_MD = "analysis.md"
-
-client = genai.Client(api_key=GOOGLE_API_KEY)
 
 def load_config():
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
@@ -36,60 +31,77 @@ def get_fred_data(indicators):
         latest_values[label] = series.iloc[-1]
     return data_results, latest_values
 
-def analyze_with_gemini(latest_values):
-    prompt = f"指標データを分析しJSONで回答してください。NFP:{latest_values.get('非農業部門雇用者数 (NFP)')}, DXY:{latest_values.get('ドルインデックス')}, CPI:{latest_values.get('消費者物価指数 (CPI)')}. JSONキー: summary, nfp_insight, dxy_trend, dxy_insight, cpi_insight, overall_outlook"
+# ==========================================
+# 2. レポート生成ロジック (AIなし)
+# ==========================================
+def generate_simple_markdown(latest_values):
+    today = datetime.date.today().strftime("%Y/%m/%d")
     
-    # 試行するモデルの優先順位
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash-8b']
-    last_error = None
+    # 取得した値をリストアップ
+    nfp = latest_values.get('非農業部門雇用者数 (NFP)', 'N/A')
+    dxy = latest_values.get('ドルインデックス', 'N/A')
+    cpi = latest_values.get('消費者物価指数 (CPI)', 'N/A')
 
-    for model_name in models_to_try:
-        print(f"🧠 Trying model: {model_name}...")
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(
-                    model=model_name, 
-                    contents=prompt
-                )
-                json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
-                if json_match:
-                    return json.loads(json_match.group())
-            except Exception as e:
-                last_error = e
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    # 制限にかかったら長めに待機（90秒）
-                    wait_time = 90
-                    print(f"⚠️ クォータ制限（429）。{wait_time}秒待機して再試行します...")
-                    time.sleep(wait_time)
-                    continue
-                break # 他のエラーなら次のモデルへ
+    return f"""# 【Weekly Macro Data】経済 Macro NOTE (KURURUGI)
+📅 *データ更新日: {today}*
+
+---
+## 📊 主要指標の最新値
+最新の経済データをFRED（セントルイス連邦準備銀行）より取得しました。
+
+### 1. 雇用統計 (NFP)
+* **最新値:** {nfp}
+
+### 2. ドル指数 (DXY)
+* **最新値:** {dxy}
+
+### 3. 消費者物価 (CPI)
+* **最新値:** {cpi}
+
+---
+## 📈 チャート確認
+詳細な推移については、同フォルダ内に生成された `output_sns.png` を参照してください。
+
+---
+**Powered by KURURUGI Data System**
+"""
+
+# ==========================================
+# 3. 画像生成 & メイン
+# ==========================================
+def create_sns_image(data_results, config):
+    plt.style.use('dark_background')
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    prop = fm.FontProperties(fname=FONT_PATH)
+    target_labels = config.get('target_labels', list(data_results.keys()))
     
-    raise last_error if last_error else Exception("分析に失敗しました。")
+    for i, label in enumerate(target_labels[:3]):
+        ax = axes[i]
+        df = data_results[label]
+        ax.plot(df.index, df.values, color='#00ffcc', linewidth=2)
+        ax.set_title(label, fontproperties=prop)
+        ax.grid(True, alpha=0.2)
+        
+    plt.tight_layout()
+    plt.savefig(OUTPUT_IMAGE)
 
 def main():
-    print("🚀 Running KURURUGI Macro System (2026.01.25-Final)...")
+    print("🚀 Running KURURUGI Macro Data System (Lean Version)...")
     try:
         config = load_config()
         data, latest = get_fred_data(config['indicators'])
         
-        print("🧠 Analyzing with Gemini 2.0 Flash...")
-        analysis = analyze_with_gemini(latest)
-        
-        today = datetime.date.today().strftime("%Y/%m/%d")
-        report = f"# 【Weekly Macro Insight】\\n📅 *{today}*\\n\\n## 📈 要約\\n> {analysis['summary']}\\n\\n## 🔍 指標分析\\n### NFP: {latest.get('非農業部門雇用者数 (NFP)')}\\n{analysis['nfp_insight']}\\n\\n### DXY: {latest.get('ドルインデックス')}\\nトレンド: {analysis['dxy_trend']}\\n\\n### CPI: {latest.get('消費者物価指数 (CPI)')}\\n{analysis['cpi_insight']}\\n\\n## 💡 総括\\n{analysis['overall_outlook']}"
-        
+        # Markdown生成（AI分析をスキップ）
+        print("📝 Generating data report...")
+        final_md = generate_simple_markdown(latest)
         with open(OUTPUT_MD, "w", encoding="utf-8") as f:
-            f.write(report)
+            f.write(final_md)
+            
+        # 画像生成
+        print("🎨 Generating dashboard image...")
+        create_sns_image(data, config)
         
-        plt.style.use('dark_background')
-        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-        prop = fm.FontProperties(fname=FONT_PATH)
-        for i, label in enumerate(list(data.keys())[:3]):
-            axes[i].plot(data[label].index, data[label].values, color='#00ffcc')
-            axes[i].set_title(label, fontproperties=prop)
-        plt.tight_layout()
-        plt.savefig(OUTPUT_IMAGE)
-        print("✅ All processes completed! Check analysis.md and output_sns.png")
+        print("✅ Process completed! Reports updated.")
     except Exception as e:
         print(f"❌ Critical Error: {e}")
         exit(1)

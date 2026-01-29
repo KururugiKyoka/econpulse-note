@@ -1,5 +1,4 @@
 fredapi
-google-genai
 PyYAML
 pandas
 matplotlib
