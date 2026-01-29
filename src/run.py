@@ -82,6 +82,12 @@ def create_dashboard(data_results, yoy_results, thresholds):
         ax_r.bar(yoy.index, yoy.values, color=colors_r, alpha=0.8, width=20)
         ax_r.set_title(f"{label} (YoY %)", fontproperties=prop, fontsize=12)
         ax_r.axhline(0, color='white', linewidth=0.8)
+        
+        # --- [NEW] FRBターゲットライン(2.0%)をCPIとPCEのYoYグラフに追加 ---
+        if label in ["消費者物価指数 (CPI)", "PCE デフレーター"]:
+            ax_r.axhline(2.0, color='#ff4444', linestyle='--', linewidth=1.5, alpha=0.9)
+            # ターゲットラインの説明
+            ax_r.text(yoy.index[0], 2.1, "Target 2.0%", color='#ff4444', fontsize=9, fontproperties=prop)
 
         # 横軸フォーマットの同期
         for ax in [ax_l, ax_r]:
@@ -100,7 +106,7 @@ def main():
         with open(OUTPUT_MD, "w", encoding="utf-8") as f:
             f.write(generate_report(latest, th))
         create_dashboard(data, yoy, th)
-        print("✅ Success!")
+        print("✅ Success! Target lines added to CPI/PCE.")
     except Exception as e:
         print(f"❌ Error: {e}"); exit(1)
 
