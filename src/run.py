@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import matplotlib.dates as mdates
 
+# ==========================================
+# 1. 環境設定
+# ==========================================
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 CONFIG_PATH = "config/indicators.yml"
 FONT_PATH = "ipaexg.ttf"
@@ -29,9 +32,9 @@ def get_fred_data(indicators):
             series = fred.get_series(series_id, observation_start=start_date)
             series = series.resample('MS').last().ffill()
             
-            # --- ここを修正：イールドカーブだけは「差分」、他は「比率」 ---
+            # イールドカーブは「差分」、他は「前年比(%)」
             if "Curve" in label:
-                yoy = (series - series.shift(12)) # ％ではなく差を計算
+                yoy = (series - series.shift(12))
             else:
                 yoy = (series / series.shift(12) - 1) * 100
                 
@@ -65,7 +68,6 @@ def generate_report(latest_values, thresholds):
     lines = [f"# 【Weekly Macro Data】経済 Macro NOTE", f"📅 *更新: {today}*", "---",
              f"## 📊 景気後退予測スコア: {prob}%", f"判定: {signals} / {total} 指標点灯", "---"]
     for label, v in latest_values.items():
-        # イールドカーブの表示形式を調整
         suffix = "pt 差" if "Curve" in label else "%"
         val = f"{v['value']:.2f}" if any(x in label for x in ["指数", "CPI", "PCE", "Curve"]) else f"{v['value']:,}"
         lines.append(f"### {label}\\n* 最新: {val} / 前年比(差): {v['yoy']:+.2f}{suffix}")
@@ -87,12 +89,17 @@ def create_dashboard(data_results, yoy_results, thresholds):
             ax.set_facecolor('#111111'); ax.set_xticks([]); ax.set_yticks([]); continue
             
         label, is_yoy = labels[label_idx], i % 2 == 1
-        if not is_yoy:
+        if not is_yoy: # Level Chart
             data = data_results[label]
             c = alert_color if (label == "ミシガン大学消費者態度指数" and data.iloc[-1] < thresholds['michigan_val_min']) or (label == "米10年-2年金利差 (Yield Curve)" and data.iloc[-1] < thresholds['yield_curve_max']) else normal_line
             ax.plot(data.index, data.values, color=c, linewidth=2.5, marker='o', markersize=5)
             ax.set_title(f"{label} (Level)", fontproperties=prop, fontsize=11)
-        else:
+            
+            # --- [NEW] イールドカーブの逆転可視化 ---
+            if "Curve" in label:
+                ax.axhline(0, color='white', linestyle='-', linewidth=1.2, alpha=0.8) # ゼロライン
+                ax.fill_between(data.index, data.values, 0, where=(data.values < 0), color=alert_color, alpha=0.3, interpolate=True) # 逆転エリアを赤塗り
+        else: # YoY Chart
             yoy = yoy_results[label]
             colors = [alert_color if (label == "非農業部門雇用者数 (NFP)" and v < thresholds['nfp_yoy_min']) or (label == "失業率" and v > thresholds['unrate_yoy_max']) or (label == "小売売上高" and v < thresholds['retail_yoy_min']) or (label == "鉱工業生産指数 (INDPRO)" and v < thresholds['indpro_yoy_min']) else normal_bar for v in yoy]
             ax.bar(yoy.index, yoy.values, color=colors, alpha=0.8, width=20)
@@ -110,7 +117,7 @@ def main():
     try:
         config = load_config(); data, yoy, latest = get_fred_data(config['indicators']); th = config['thresholds']
         with open(OUTPUT_MD, "w", encoding="utf-8") as f: f.write(generate_report(latest, th))
-        create_dashboard(data, yoy, th); print("✅ Dashboard Pro-Version Complete!")
+        create_dashboard(data, yoy, th); print("✅ Yield Curve Visualization Applied!")
     except Exception as e: print(f"❌ Error: {e}"); exit(1)
 
 if __name__ == "__main__":
