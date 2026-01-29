@@ -13,14 +13,29 @@ indicators:
     label: "ミシガン大学消費者態度指数"
   - id: "T10Y2Y"
     label: "米10年-2年金利差 (Yield Curve)"
-  - id: "INDPRO" # 最も安定して取得可能な「鉱工業生産指数」
+  - id: "INDPRO"
     label: "鉱工業生産指数 (INDPRO)"
+  - id: "DTWEXBGS"
+    label: "ドルインデックス (DXY)"
+  - id: "ICSA"
+    label: "新規失業保険申請件数 (Claims)"
+  - id: "DCOILWTICO" # WTI原油
+    label: "WTI原油価格 (Oil)"
+  - id: "GOLDAMGBD228NLBM" # 金価格
+    label: "金価格 (Gold)"
+  - id: "SP500" # S&P 500
+    label: "S&P 500 指数"
+  - id: "HOUST" # 住宅着工件数 (景気先行指標)
+    label: "住宅着工件数 (Housing)"
+  - id: "DGS10" # 米10年債利回り
+    label: "米10年債利回り (10Y Yield)"
 
-# リセッション・アラートのしきい値
 thresholds:
   nfp_yoy_min: 0.5
   unrate_yoy_max: 5.0
   michigan_val_min: 60.0
   retail_yoy_min: 0.0
   yield_curve_max: 0.0
-  indpro_yoy_min: 0.0 # 0を下回ると生産収縮で赤
+  indpro_yoy_min: 0.0
+  claims_yoy_max: 15.0
+  houst_yoy_min: -5.0 # 住宅着工が5%以上減ると赤点灯
