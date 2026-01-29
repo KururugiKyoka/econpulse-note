@@ -19,16 +19,10 @@ indicators:
     label: "ドルインデックス (DXY)"
   - id: "ICSA"
     label: "新規失業保険申請件数 (Claims)"
-  - id: "DCOILWTICO" # WTI原油
+  - id: "DCOILWTICO"
     label: "WTI原油価格 (Oil)"
-  - id: "GOLDAMGBD228NLBM" # 金価格
-    label: "金価格 (Gold)"
-  - id: "SP500" # S&P 500
+  - id: "SP500"
     label: "S&P 500 指数"
-  - id: "HOUST" # 住宅着工件数 (景気先行指標)
-    label: "住宅着工件数 (Housing)"
-  - id: "DGS10" # 米10年債利回り
-    label: "米10年債利回り (10Y Yield)"
 
 thresholds:
   nfp_yoy_min: 0.5
@@ -38,4 +32,3 @@ thresholds:
   yield_curve_max: 0.0
   indpro_yoy_min: 0.0
   claims_yoy_max: 15.0
-  houst_yoy_min: -5.0 # 住宅着工が5%以上減ると赤点灯
