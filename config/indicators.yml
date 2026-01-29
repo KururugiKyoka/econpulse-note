@@ -11,14 +11,16 @@ indicators:
     label: "小売売上高"
   - id: "UMCSENT"
     label: "ミシガン大学消費者態度指数"
-  - id: "DGS10"
-    label: "米10年債利回り"
-  - id: "DTWEXBGS"
-    label: "ドルインデックス"
+  - id: "T10Y2Y"
+    label: "米10年-2年金利差 (Yield Curve)"
+  - id: "PRMNTO01USM661S" # S&P Global 製造業PMI
+    label: "製造業PMI (Manufacturing)"
 
-# リセッション・アラートのしきい値設定
+# リセッション・アラートのしきい値
 thresholds:
-  nfp_yoy_min: 0.5        # 雇用(YoY)がこの値を下回ると赤
-  unrate_yoy_max: 5.0     # 失業率(YoY)がこの値を超えると赤
-  michigan_val_min: 60.0  # ミシガン指数がこの値を下回ると赤
-  retail_yoy_min: 0.0     # 小売(YoY)がマイナスだと赤
+  nfp_yoy_min: 0.5
+  unrate_yoy_max: 5.0
+  michigan_val_min: 60.0
+  retail_yoy_min: 0.0
+  yield_curve_max: 0.0
+  pmi_min: 50.0  # 50を下回ると赤点灯
