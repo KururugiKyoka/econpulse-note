@@ -12,7 +12,7 @@ import matplotlib.font_manager as fm
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 CONFIG_PATH = "config/indicators.yml"
 FONT_PATH = "ipaexg.ttf"
-OUTPUT_IMAGE = "output/output_sns.png"
+OUTPUT_IMAGE = "output/note_table.png"
 OUTPUT_MD = "output/analysis.md"
 
 def load_config():
